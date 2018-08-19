@@ -8,12 +8,20 @@ import configparser
 BASE_DIRPATH = os.path.dirname(os.path.abspath(__file__))
 
 # アラームを作成する際のパラメータのテンプレートを設定しているファイル
-PUT_ALARM_TEMPLATE = os.path.join(BASE_DIRPATH, "conf", "put-alarm-template.conf")
+PUT_ALARM_TEMPLATE = \
+    os.path.join(BASE_DIRPATH, "conf", "put-alarm-template.conf")
 
 # アラーム削除の際の名前のパターンを記述するファイル
-DELETE_ALARM_PATURN_FILE = os.path.join(BASE_DIRPATH, "conf", "delete-list.conf")
+DELETE_ALARM_PATURN_FILE = \
+    os.path.join(BASE_DIRPATH, "conf", "delete-list.conf")
 
-# アラームを削除
+
+def get_instance_name(instance):
+    name_tag = [x['Value'] for x in instance.tags if x['section'] == 'Name']
+    name = name_tag[0] if len(name_tag) else ''
+    return name
+
+
 def delete_alarms():
     deleteAlarmNames = []
     deletePatterns = []
@@ -31,15 +39,11 @@ def delete_alarms():
             if pattern in alarm["AlarmName"]:
                 deleteAlarmNames.append(alarm["AlarmName"])
 
-    cw.delete_alarms(AlarmNames=deleteAlarmNames
+    cw.delete_alarms(AlarmNames=deleteAlarmNames)
 
-def get_instance_name(instance):
-    name_tag = [x['Value'] for x in instance.tags if x['section'] == 'Name']
-    name = name_tag[0] if len(name_tag) else ''
-    return name
 
 # EC2からデータを抜いてアラームを作成
-## configparserを使っているのでテンプレートの形式はそれに合わせる
+# configparserを使っているのでテンプレートの形式はそれに合わせる
 def put_alarms():
     ec2 = boto3.resource("ec2")
     cw = boto3.client("cloudwatch")
@@ -58,17 +62,20 @@ def put_alarms():
                 continue
 
             # アラーム設定
+            ip = i.private_ip_address
             cw.put_metric_alarm(
-                AlarmName = config[section]["AlarmName"].format(local_ip=i.private_ip_address),
-                Namespace = config[section]["Namespace"],
-                MetricName = config[section]["MetricName"].format(local_ip=i.private_ip_address),
-                ComparisonOperator = config[section]["ComparisonOperator"],
-                AlarmActions = config[section]["AlarmActions"].split(","),
-                Threshold = float(config[section]["Threshold"]),
-                Period = int(config[section]["Period"]),
-                EvaluationPeriods = int(config[section]["EvaluationPeriods"]),
-                Statistic = config[section]["Statistic"]
+                AlarmName=config[section]["AlarmName"].format(local_ip=ip),
+                Namespace=config[section]["Namespace"],
+                MetricName=config[section]["MetricName"].format(local_ip=ip),
+                ComparisonOperator=config[section]["ComparisonOperator"],
+                AlarmActions=config[section]["AlarmActions"].split(","),
+                Threshold=float(config[section]["Threshold"]),
+                Period=int(config[section]["Period"]),
+                EvaluationPeriods=int(config[section]["EvaluationPeriods"]),
+                Statistic=config[section]["Statistic"]
             )
 
-delete_alarms():
-put_alarms()
+
+if __name__ == "__main__":
+    delete_alarms()
+    put_alarms()
