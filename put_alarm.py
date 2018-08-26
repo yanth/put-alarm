@@ -17,7 +17,7 @@ DELETE_ALARM_PATURN_FILE = \
 
 
 def get_instance_name(instance):
-    name_tag = [x['Value'] for x in instance.tags if x['section'] == 'Name']
+    name_tag = [x['Value'] for x in instance.tags if x['Key'] == 'Name']
     name = name_tag[0] if len(name_tag) else ''
     return name
 
@@ -42,6 +42,18 @@ def delete_alarms():
     cw.delete_alarms(AlarmNames=deleteAlarmNames)
 
 
+# ディメンション作成
+def createDimensions(type, instance):
+    dict = []
+    if type == "Instance":
+        dict.append({
+            "Name": "InstanceId",
+            "Value": instance.instance_id
+        })
+
+    return dict
+
+
 # EC2からデータを抜いてアラームを作成
 # configparserを使っているのでテンプレートの形式はそれに合わせる
 def put_alarms():
@@ -61,12 +73,15 @@ def put_alarms():
             if not get_instance_name(i) in config[section]["target"]:
                 continue
 
+            dimentions = createDimensions(config[section]["Dimensions"], i)
+
             # アラーム設定
             ip = i.private_ip_address
             cw.put_metric_alarm(
                 AlarmName=config[section]["AlarmName"].format(local_ip=ip),
                 Namespace=config[section]["Namespace"],
                 MetricName=config[section]["MetricName"].format(local_ip=ip),
+                Dimensions=dimentions,
                 ComparisonOperator=config[section]["ComparisonOperator"],
                 AlarmActions=config[section]["AlarmActions"].split(","),
                 Threshold=float(config[section]["Threshold"]),
